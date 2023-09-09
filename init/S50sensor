@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# Start sensor
+
+# The STW_START_TIMEOUT in seconds can be used to trigger the hardware watchdog during boot
+# the watchdog will be triggered for a maximum of STW_START_TIMEOUT seconds
+# if the startscript is still running at this time the device will be rebooted after reaching the watchdogs time limit
+# if the startscript has already ended, the supervisor that triggers the hardware watchdog will be killed
+# current watchdog limit is about 60 seconds
+# STW_START_TIMEOUT=none => no triggering of the hardware watchdog
+# STW_START_TIMEOUT=inf => this must be a very special script, hardware watchdog will be triggered as long as script is
+# STW_START_TIMEOUT=54 => hardware watchdog will be triggered for 54 seconds
+STW_START_TIMEOUT=60
+
+if [ -f /etc/.colors ]; then
+   . /etc/.colors
+fi
+. /etc/sensor.conf
+
+FILENAME=`basename "$0"`
+LOGFILE="/var/log/boot/$FILENAME.log"
+
+NAME=sensor
+DAEMON=$(type -p $NAME)
+PID_FILE="/var/run/$NAME.pid"
+
+sanity_check() {
+   if [ "$SENSOR_ENABLE" != "ON" ]; then
+      echo -e "$BOLD$YELLOW Not configured $RESET$NORMAL]" | tee -a $LOGFILE
+      exit 0
+   fi
+}
+start() {
+   printf "Start: [ $NAME:" | tee -a $LOGFILE
+   # perform sanity check
+   sanity_check
+   # start daemon
+   start-stop-daemon -S -q -m -b -p $PID_FILE --exec $DAEMON -- $SENSOR_ARGS >> $LOGFILE 2>&1
+   if [ $? -eq 0 ]; then
+      echo -e "$BOLD$GREEN OK $RESET$NORMAL]" | tee -a $LOGFILE
+   else
+      echo -e "$BOLD$RED FAIL $RESET$NORMAL]" | tee -a $LOGFILE
+   fi
+}
+
+stop() {
+   printf "Stop: [ $NAME:"
+   # perform sanity check
+   sanity_check
+   # stop daemon
+   start-stop-daemon -K -q -p $PID_FILE && echo -e "$BOLD$GREEN OK $RESET$NORMAL]" || echo -e "$BOLD$RED FAIL $RESET$NORMAL]"
+}
+restart() {
+   stop
+   sleep 1
+   start
+}
+
+
+case "$1" in
+  start)
+   start
+   ;;
+  stop)
+   stop
+   ;;
+  restart|reload)
+   restart
+   ;;
+  *)
+   echo "Usage: $0 {start|stop|restart}"
+   exit 1
+esac
+
+exit $?
