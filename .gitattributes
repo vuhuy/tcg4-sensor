@@ -1,7 +1,7 @@
 * text=auto
 *.* text eol=lf
 *.ps1 eol=crlf
-.project binary
+*.project binary
 *.png binary
 *.jpg binary
 *.jpeg binary
